@@ -15,6 +15,13 @@ public class RegisterDTO
 
     [Required]
     public string LastName { get; set; } = string.Empty;
-
+    
+    [Required]
     public string Dni { get; set; } = string.Empty;
+    
+    [Required]
+    public DateOnly DateOfBirth { get; set; }
+
+    [Required]
+    public string PhoneNumber { get; set; } = string.Empty;
 }
