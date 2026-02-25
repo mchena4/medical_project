@@ -18,7 +18,6 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("Register")]
-
     public async Task<IActionResult> Register(RegisterDTO request)
     {
         // Check if the email is already registered
@@ -29,19 +28,32 @@ public class AuthController : ControllerBase
         var patientRole = await _context.Roles.FirstOrDefaultAsync(r => r.Name == "Patient");
         if (patientRole == null) 
         {
-            return StatusCode(500, "Error interno: El rol 'Patient' no existe en la base de datos.");
+            return StatusCode(500, "Error: Role Patient not found in the database.");
         }
 
         // Create a new user
-        var user = new User
+        var newUser = new User
         {
             Email = request.Email,
             Password = BCrypt.Net.BCrypt.HashPassword(request.Password),
             RoleId = patientRole.Id,
         };
-        _context.Users.Add(user);
+        _context.Users.Add(newUser);
         await _context.SaveChangesAsync();
 
-        return Ok("User registered successfully.");
+        var newPatient = new Patient
+        {
+            UserId = newUser.Id,
+            FirstName = request.FirstName,
+            LastName = request.LastName,
+            Dni = request.Dni,
+            DateOfBirth = request.DateOfBirth,
+            PhoneNumber = request.PhoneNumber
+        };
+
+        _context.Patients.Add(newPatient);
+        await _context.SaveChangesAsync();
+
+        return Ok("Patient registered successfully.");
     }
 }
