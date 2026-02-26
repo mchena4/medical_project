@@ -86,14 +86,14 @@ public class AuthController : ControllerBase
         var claims = new List<Claim>
         {
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new Claim(ClaimTypes.Email, user.Email),
-            new Claim(ClaimTypes.Role, user.Role.Name)
+            new Claim(ClaimTypes.Email, user.Email ?? ""),
+            new Claim(ClaimTypes.Role, user.Role?.Name ?? "Patient")
         };  
 
         // Generate the JWT token
         var jwtSettings = _configuration.GetSection("JwtSettings");
         var secretKey = jwtSettings.GetValue<string>("SecretKey");
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey!));
 
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
