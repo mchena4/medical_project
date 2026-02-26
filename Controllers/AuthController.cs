@@ -3,6 +3,10 @@ using Microsoft.EntityFrameworkCore;
 using MedicalClinicAPI.Data;
 using MedicalClinicAPI.DTOs.Auth;
 using MedicalClinicAPI.Models;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 namespace MedicalClinicAPI.Controllers;
 
@@ -11,10 +15,12 @@ namespace MedicalClinicAPI.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly IConfiguration _configuration;
 
-    public AuthController(AppDbContext context)
+    public AuthController(AppDbContext context, IConfiguration configuration)
     {
         _context = context;
+        _configuration = configuration;
     }
 
     [HttpPost("Register")]
@@ -55,5 +61,46 @@ public class AuthController : ControllerBase
         await _context.SaveChangesAsync();
 
         return Ok("Patient registered successfully.");
+    }
+
+    [HttpPost("Login")]
+    public async Task<IActionResult> Login(LoginDTO request)
+    {
+        var user = await _context.Users
+            .Include(u => u.Role)
+            .FirstOrDefaultAsync(u => u.Email == request.Email);
+
+        if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.Password))
+        {
+            return Unauthorized("Invalid email or password.");
+        }
+
+        var claims = new List<Claim>
+        {
+            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new Claim(ClaimTypes.Email, user.Email),
+            new Claim(ClaimTypes.Role, user.Role.Name)
+        };  
+
+        var jwtSettings = _configuration.GetSection("JwtSettings");
+        var secretKey = jwtSettings.GetValue<string>("SecretKey");
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
+
+        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        var token = new JwtSecurityToken
+        (
+            issuer: jwtSettings.GetValue<string>("Issuer"),
+            audience: jwtSettings.GetValue<string>("Audience"),
+            claims: claims,
+            expires: DateTime.Now.AddHours(2),
+            signingCredentials: credentials 
+
+        );
+
+        var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
+
+        return Ok(new { Token = tokenString });
+
     }
 }
