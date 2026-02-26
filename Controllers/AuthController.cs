@@ -7,7 +7,6 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using Microsoft.AspNetCore.Authorization;
 
 namespace MedicalClinicAPI.Controllers;
 
@@ -18,12 +17,14 @@ public class AuthController : ControllerBase
     private readonly AppDbContext _context;
     private readonly IConfiguration _configuration;
 
+    // Constructor to inject the database context and configuration
     public AuthController(AppDbContext context, IConfiguration configuration)
     {
         _context = context;
         _configuration = configuration;
     }
 
+    // Register endpoint to create a new patient user
     [HttpPost("Register")]
     public async Task<IActionResult> Register(RegisterDTO request)
     {
@@ -32,6 +33,7 @@ public class AuthController : ControllerBase
             return BadRequest("Email is already registered.");
         }
 
+        // Get the Patient role from the database
         var patientRole = await _context.Roles.FirstOrDefaultAsync(r => r.Name == "Patient");
         if (patientRole == null) 
         {
@@ -48,6 +50,7 @@ public class AuthController : ControllerBase
         _context.Users.Add(newUser);
         await _context.SaveChangesAsync();
 
+        // Create a new patient linked to the user
         var newPatient = new Patient
         {
             UserId = newUser.Id,
@@ -64,18 +67,22 @@ public class AuthController : ControllerBase
         return Ok("Patient registered successfully.");
     }
 
+    // Login endpoint to authenticate a user and return a JWT token
     [HttpPost("Login")]
     public async Task<IActionResult> Login(LoginDTO request)
     {
+        // Find the user by email and include the role information
         var user = await _context.Users
             .Include(u => u.Role)
             .FirstOrDefaultAsync(u => u.Email == request.Email);
 
+        // Check if the user exists and if the password is correct
         if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.Password))
         {
             return Unauthorized("Invalid email or password.");
         }
 
+        // Create claims for the JWT token
         var claims = new List<Claim>
         {
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
@@ -83,6 +90,7 @@ public class AuthController : ControllerBase
             new Claim(ClaimTypes.Role, user.Role.Name)
         };  
 
+        // Generate the JWT token
         var jwtSettings = _configuration.GetSection("JwtSettings");
         var secretKey = jwtSettings.GetValue<string>("SecretKey");
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
@@ -99,6 +107,7 @@ public class AuthController : ControllerBase
 
         );
 
+        // Return the token as a string
         var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
 
         return Ok(new { Token = tokenString });
