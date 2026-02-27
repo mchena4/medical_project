@@ -23,6 +23,7 @@ public class AppointmentsController : ControllerBase
     [HttpPost]
     [Authorize(Roles = "Patient, Receptionist")]
 
+    // This endpoint allows both patients and receptionists to create appointments.
     public async Task<IActionResult> CreateAppointment(CreateAppointmentDTO request)
     {
         //Identify the user and his role
@@ -81,8 +82,64 @@ public class AppointmentsController : ControllerBase
 
         _context.Appointments.Add(newAppointment);
         await _context.SaveChangesAsync();
-        
+
         return Ok("Appointment created successfully.");
 
+    }
+
+    [HttpGet]
+    [Authorize(Roles = "Patient, Receptionist, Doctor")]
+
+    // This endpoint allows patients, receptionists, and doctors to view appointments
+    public async Task<IActionResult> GetAppointments()
+    {
+        //Identify user and his role
+        var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
+        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        // Check if the user ID is valid
+        if(!int.TryParse(userIdString, out int userId))
+        {
+            return Unauthorized("Invalid user ID.");
+        }
+
+        // Query to get appointments with patient and status details
+        var query = _context.Appointments
+            .Include(a => a.Patient)
+            .Include(a => a.Status)
+            .AsQueryable();
+
+        // Filter appointments based on user role
+        if(userRole == "Patient")
+        {
+            var patient = await _context.Patients.FirstOrDefaultAsync(p=>p.UserId == userId);
+            if(patient == null) return NotFound("Patient not found for the current user.");
+
+            // Only return appointments for the current patient
+            query = query.Where(a=> a.PatientId == patient.Id);
+        }
+
+        if(userRole == "Doctor")
+        {   
+            // Only return appointments for the current doctor
+            query = query.Where(a=>a.DoctorId == userId);
+
+        }
+
+        // Return the appointments with patient name and status
+        var appointments = await query
+            .OrderBy(a=>a.AppointmentDate)
+            .Select(a => new
+            {
+                // Details of the appointment
+                AppointmentId = a.Id,
+                Date = a.AppointmentDate,
+                Status = a.Status.Name,
+                Patient = a.Patient.FirstName + " " + a.Patient.LastName,
+                PatientDni = a.Patient.Dni
+            })
+            .ToListAsync();
+
+            return Ok(appointments);
     }
 }
