@@ -142,4 +142,97 @@ public class AppointmentsController : ControllerBase
 
             return Ok(appointments);
     }
+
+    [HttpDelete("{id}")]
+    [Authorize(Roles = "Patient, Receptionist")]
+    // This endpoint allows patients and receptionists to cancel appointments
+    public async Task<IActionResult> CancelAppointment(int id)
+    {
+        //Identify user and his role
+        var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
+        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        // Check if the user ID is valid
+        if (!int.TryParse(userIdString, out int userId))
+            return Unauthorized("Invalid user ID.");
+
+        // Get the appointment to be cancelled
+        var appointment = await _context.Appointments.FindAsync(id);
+        if (appointment == null) return NotFound("Appointment not found.");
+
+        // If the user is a patient, check if the appointment belongs to the patient
+        if (userRole == "Patient")
+        {
+            var patient = await _context.Patients.FirstOrDefaultAsync(p=>p.UserId == userId);
+
+            if (patient == null || appointment.PatientId != patient.Id)
+            {
+                return StatusCode(403, "You are not authorized to cancel this appointment.");
+            }
+
+        }   
+
+        // Cancel appointment
+        _context.Appointments.Remove(appointment);
+        await _context.SaveChangesAsync();
+
+        return Ok(new {message = "Appointment cancelled successfully." }); 
+    }
+
+    [HttpPut("{id}")]
+    [Authorize(Roles = "Receptionist, Doctor")]
+
+    // This endpoint allows receptionists and doctors to update appointments
+    public async Task<IActionResult> UpdateAppointment(int id, UpdateAppointmentDTO request)
+    {
+        
+        var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
+        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (!int.TryParse(userIdString, out int userId))
+            return Unauthorized("Invalid user ID.");
+
+        var appointment = await _context.Appointments.FindAsync(id);
+        if (appointment == null) return NotFound("Appointment not found.");
+
+        if (userRole == "Doctor")
+        {
+            if(appointment.DoctorId != userId)
+            {
+                return StatusCode(403, "You are not authorized to update this appointment.");
+            }
+
+            if (request.AppointmentDate.HasValue || request.DoctorId.HasValue || request.PatientId.HasValue)
+            {
+                return BadRequest("Doctors can only update the status of the appointment.");
+            }
+
+            if(request.StatusId.HasValue) appointment.StatusId = request.StatusId.Value;
+
+        }
+
+        else if (userRole == "Receptionist")
+        {
+            if (request.StatusId.HasValue)
+            {
+                appointment.StatusId = request.StatusId.Value;
+            }
+
+            if (request.AppointmentDate.HasValue)
+            {
+                appointment.AppointmentDate = request.AppointmentDate.Value;
+            }
+
+            if (request.DoctorId.HasValue)
+            {
+                var doctor = await _context.Users.FirstOrDefaultAsync(u => u.Id == request.DoctorId.Value && u.Role != null && u.Role.Name == "Doctor");
+                if (doctor == null) return NotFound("Doctor not found.");
+                appointment.DoctorId = request.DoctorId.Value;
+            }
+        }
+
+        await _context.SaveChangesAsync();
+
+        return Ok("Appointment updated successfully.");
+    }
 }
