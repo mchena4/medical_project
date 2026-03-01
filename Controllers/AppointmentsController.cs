@@ -5,6 +5,7 @@ using System.Security.Claims;
 using MedicalClinicAPI.Data;
 using MedicalClinicAPI.Models;
 using MedicalClinicAPI.DTOs.Appointments;
+using MedicalClinicAPI.Extensions;
 
 namespace MedicalClinicAPI.Controllers;
 
@@ -27,14 +28,10 @@ public class AppointmentsController : ControllerBase
     public async Task<IActionResult> CreateAppointment(CreateAppointmentDTO request)
     {
         //Identify the user and his role
-        var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
-        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var (userId, userRole) = User.GetUserInfo();
 
         // Check if the user ID is valid
-        if (!int.TryParse(userIdString, out int userId))
-        {
-            return Unauthorized("Invalid user ID.");
-        }
+        if (userId == null) return Unauthorized("Invalid user ID.");
 
         // Patient id
         int finalPatientId = 0;
@@ -93,15 +90,11 @@ public class AppointmentsController : ControllerBase
     // This endpoint allows patients, receptionists, and doctors to view appointments
     public async Task<IActionResult> GetAppointments()
     {
-        //Identify user and his role
-        var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
-        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        //Identify the user and his role
+        var (userId, userRole) = User.GetUserInfo();
 
         // Check if the user ID is valid
-        if(!int.TryParse(userIdString, out int userId))
-        {
-            return Unauthorized("Invalid user ID.");
-        }
+        if (userId == null) return Unauthorized("Invalid user ID.");
 
         // Query to get appointments with patient and status details
         var query = _context.Appointments
@@ -148,13 +141,11 @@ public class AppointmentsController : ControllerBase
     // This endpoint allows patients and receptionists to cancel appointments
     public async Task<IActionResult> CancelAppointment(int id)
     {
-        //Identify user and his role
-        var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
-        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        //Identify the user and his role
+        var (userId, userRole) = User.GetUserInfo();
 
         // Check if the user ID is valid
-        if (!int.TryParse(userIdString, out int userId))
-            return Unauthorized("Invalid user ID.");
+        if (userId == null) return Unauthorized("Invalid user ID.");
 
         // Get the appointment to be cancelled
         var appointment = await _context.Appointments.FindAsync(id);
@@ -185,34 +176,39 @@ public class AppointmentsController : ControllerBase
     // This endpoint allows receptionists and doctors to update appointments
     public async Task<IActionResult> UpdateAppointment(int id, UpdateAppointmentDTO request)
     {
-        
-        var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
-        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        //Identify user and his role
+        var (userId, userRole) = User.GetUserInfo();
 
-        if (!int.TryParse(userIdString, out int userId))
-            return Unauthorized("Invalid user ID.");
+        if (userId == null) return Unauthorized("Invalid user ID.");
 
+
+        // Get the appointment to be updated
         var appointment = await _context.Appointments.FindAsync(id);
         if (appointment == null) return NotFound("Appointment not found.");
 
+        
         if (userRole == "Doctor")
         {
+            // Check if the doctor is trying to update an appointment that belongs to him
             if(appointment.DoctorId != userId)
             {
                 return StatusCode(403, "You are not authorized to update this appointment.");
             }
 
+            // Only allow doctors to update the status of the appointment
             if (request.AppointmentDate.HasValue || request.DoctorId.HasValue || request.PatientId.HasValue)
             {
                 return BadRequest("Doctors can only update the status of the appointment.");
             }
 
+            // Update the status if provided
             if(request.StatusId.HasValue) appointment.StatusId = request.StatusId.Value;
 
         }
 
         else if (userRole == "Receptionist")
         {
+            // Check fields to update
             if (request.StatusId.HasValue)
             {
                 appointment.StatusId = request.StatusId.Value;
@@ -225,12 +221,14 @@ public class AppointmentsController : ControllerBase
 
             if (request.DoctorId.HasValue)
             {
+                // Check if the doctor exists and has the Doctor role
                 var doctor = await _context.Users.FirstOrDefaultAsync(u => u.Id == request.DoctorId.Value && u.Role != null && u.Role.Name == "Doctor");
                 if (doctor == null) return NotFound("Doctor not found.");
                 appointment.DoctorId = request.DoctorId.Value;
             }
         }
 
+        // Save changes to the database
         await _context.SaveChangesAsync();
 
         return Ok("Appointment updated successfully.");
