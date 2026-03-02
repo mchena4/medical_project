@@ -109,4 +109,28 @@ public class PatientsController : ControllerBase
 
         return Ok("Patient created successfully.");
     }
+
+    [HttpDelete("{id}")]
+    [Authorize(Roles = "Receptionist")]
+    // This endpoint allows receptionists to delete patients.
+    public async Task<IActionResult> DeletePatient(int id)
+    {
+        // Get the patient from the database
+        var patient = await _context.Patients.FindAsync(id);
+        if (patient == null) return NotFound("Patient not found.");
+
+        // Get the associated user and delete both the patient and the user
+        var user = await _context.Users.FindAsync(patient.UserId);
+        if (user != null)
+        {
+            _context.Users.Remove(user);
+        }
+        else
+        {
+            _context.Patients.Remove(patient);
+        }
+
+        await _context.SaveChangesAsync();
+        return Ok("Patient deleted successfully.");
+    }
 }
