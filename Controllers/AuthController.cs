@@ -7,6 +7,8 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using Microsoft.AspNetCore.Authorization;
+using MedicalClinicAPI.Extensions;
 
 namespace MedicalClinicAPI.Controllers;
 
@@ -112,5 +114,32 @@ public class AuthController : ControllerBase
 
         return Ok(new { Token = tokenString });
 
+    }
+
+    [HttpPost("ChangePassword")]
+    [Authorize]
+    public async Task<IActionResult> ChangePassword(ChangePasswordDTO request)
+    {
+        var userId = User.GetUserInfo().userId;
+        if (userId == null) return Unauthorized("User ID not found in token.");
+
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null) return NotFound("User not found.");
+
+        if(!BCrypt.Net.BCrypt.Verify(request.CurrentPassword, user.Password))
+        {
+            return BadRequest("Current password is incorrect.");
+        }
+
+        if (request.CurrentPassword == request.NewPassword)
+        {
+            return BadRequest("New password cannot be the same as the current password.");
+        }
+
+        user.Password = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+        _context.Users.Update(user);
+        await _context.SaveChangesAsync();
+
+        return Ok("Password changed successfully.");
     }
 }
