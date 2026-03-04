@@ -5,7 +5,7 @@ using MedicalClinicAPI.Data;
 using MedicalClinicAPI.DTOs.Patients;
 using MedicalClinicAPI.Models;
 
-namespace MedicalClinicalAPI.Controllers;
+namespace MedicalClinicAPI.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
@@ -124,10 +124,11 @@ public class PatientsController : ControllerBase
         if (user != null)
         {
             _context.Users.Remove(user);
+            _context.Patients.Remove(patient);
         }
         else
         {
-            _context.Patients.Remove(patient);
+            return NotFound("Associated user not found. Patient cannot be deleted.");
         }
 
         await _context.SaveChangesAsync();
