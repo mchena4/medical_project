@@ -3,6 +3,7 @@ using System;
 using MedicalClinicAPI.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MedicalClinicApi.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260304000456_AddedStaffAndSpecialtiesTables")]
+    partial class AddedStaffAndSpecialtiesTables
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -79,14 +82,9 @@ namespace MedicalClinicApi.Migrations
                     b.Property<int>("SpecialtyId")
                         .HasColumnType("integer");
 
-                    b.Property<int>("UserId")
-                        .HasColumnType("integer");
-
                     b.HasKey("Id");
 
                     b.HasIndex("SpecialtyId");
-
-                    b.HasIndex("UserId");
 
                     b.ToTable("Doctors");
                 });
@@ -302,20 +300,12 @@ namespace MedicalClinicApi.Migrations
             modelBuilder.Entity("MedicalClinicAPI.Models.Doctor", b =>
                 {
                     b.HasOne("MedicalClinicAPI.Models.Specialty", "Specialty")
-                        .WithMany("Doctors")
+                        .WithMany()
                         .HasForeignKey("SpecialtyId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("MedicalClinicAPI.Models.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.Navigation("Specialty");
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("MedicalClinicAPI.Models.Patient", b =>
@@ -349,11 +339,6 @@ namespace MedicalClinicApi.Migrations
                         .IsRequired();
 
                     b.Navigation("Role");
-                });
-
-            modelBuilder.Entity("MedicalClinicAPI.Models.Specialty", b =>
-                {
-                    b.Navigation("Doctors");
                 });
 #pragma warning restore 612, 618
         }
