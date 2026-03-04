@@ -22,7 +22,6 @@ public class DoctorsController : ControllerBase
 
 
     [HttpGet]
-    [Authorize]
     public async Task<IActionResult> GetAllDoctors()
     {
         // Fetch all doctors 
@@ -42,7 +41,6 @@ public class DoctorsController : ControllerBase
 
     
     [HttpGet("Specialty/{SpecialtyId}")]
-    [Authorize]
     // This endpoint retrieves doctors based on their specialty
     public async Task<IActionResult> GetDoctorsBySpecialty(int SpecialtyId)
     {
