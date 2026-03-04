@@ -60,9 +60,10 @@ public class AppointmentsController : ControllerBase
             finalPatientId = request.PatientId.Value;
         }
 
-        // Check if the doctor exists and has the Doctor role
-        var doctor = await _context.Users.FirstOrDefaultAsync(u=>u.Id == request.DoctorId && u.Role != null && u.Role.Name == "Doctor");
+        // Check if the doctor exists
+        var doctor = await _context.Doctors.FirstOrDefaultAsync(d => d.Id == request.DoctorId);
         if (doctor == null) return NotFound("Doctor not found.");
+
         // Check if 'pending' status exists
         var pendingStatus = await _context.Statuses.FirstOrDefaultAsync(s => s.Name == "Pending");
         if (pendingStatus == null) return StatusCode(500, "Error: Status Pending not found in the database.");
@@ -114,8 +115,9 @@ public class AppointmentsController : ControllerBase
         if(userRole == "Doctor")
         {   
             // Only return appointments for the current doctor
-            query = query.Where(a=>a.DoctorId == userId);
-
+            var doctor = await _context.Doctors.FirstOrDefaultAsync(d => d.UserId == userId);
+            if(doctor == null) return NotFound("Doctor not found for the current user.");
+            query = query.Where(a => a.DoctorId == doctor.Id);
         }
 
         // Return the appointments with patient name and status
@@ -188,8 +190,12 @@ public class AppointmentsController : ControllerBase
         
         if (userRole == "Doctor")
         {
+
+            var doctor = await _context.Doctors.FirstOrDefaultAsync(d => d.UserId == userId);
+            if(doctor == null) return NotFound("Doctor not found for the current user.");
+            
             // Check if the doctor is trying to update an appointment that belongs to him
-            if(appointment.DoctorId != userId)
+            if(appointment.DoctorId != doctor.Id)
             {
                 return StatusCode(403, "You are not authorized to update this appointment.");
             }
