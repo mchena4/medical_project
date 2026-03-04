@@ -14,6 +14,10 @@ public class AppDbContext : DbContext
     public DbSet<Role> Roles { get; set; }
     public DbSet<Status> Statuses { get; set; }
 
+    public DbSet<Doctor> Doctors { get; set; }
+    public DbSet<Specialty> Specialties { get; set; }
+    public DbSet<Receptionist> Receptionists { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // Seed Status Data
