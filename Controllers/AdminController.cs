@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using MedicalClinicAPI.Data;
 using MedicalClinicAPI.Models;
 using MedicalClinicAPI.DTOs.Admin;
+using MedicalClinicAPI.DTOs.Users;
+
 
 namespace MedicalClinicAPI.Controllers;
 
@@ -101,6 +103,54 @@ public class AdminController : ControllerBase
         await _context.SaveChangesAsync();
 
         return Ok(new { Message = "Receptionist registered successfully" });
+    }
+
+    [HttpPost("CreateSpecialty")]
+    public async Task<IActionResult> CreateSpecialty(CreateSpecialtyDTO request)
+    {
+        // Check if the specialty already exists
+        if (await _context.Specialties.AnyAsync(s => s.Name == request.Name))
+        {
+            return BadRequest("Specialty already exists.");
+        }
+
+        // Create a new specialty
+        var specialty = new Specialty
+        {
+            Name = request.Name
+        };
+
+        _context.Specialties.Add(specialty);
+        await _context.SaveChangesAsync();
+
+        return Ok(new { Message = "Specialty created successfully" });
+    }
+
+    [HttpPost("CreateUser")]
+    public async Task<IActionResult> CreateUser(CreateUserDTO request)
+    {
+        // Check if the email is already in use
+        if (await _context.Users.AnyAsync(u => u.Email == request.Email))
+        {
+            return BadRequest("Email is already in use.");
+        }
+
+        // Find the role in the database
+        var role = await _context.Roles.FirstOrDefaultAsync(r => r.Name == request.Role);
+        if (role == null) return StatusCode(500, "Role not found in the database.");
+
+        // Create a new user 
+        var newUser = new User
+        {
+            Email = request.Email,
+            Password = BCrypt.Net.BCrypt.HashPassword(request.Password),
+            RoleId = role.Id
+        };
+
+        _context.Users.Add(newUser);
+        await _context.SaveChangesAsync();
+
+        return Ok(new { Message = "User created successfully" });
     }
 }
 
