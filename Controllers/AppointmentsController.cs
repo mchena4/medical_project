@@ -68,6 +68,15 @@ public class AppointmentsController : ControllerBase
         var pendingStatus = await _context.Statuses.FirstOrDefaultAsync(s => s.Name == "Pending");
         if (pendingStatus == null) return StatusCode(500, new { message = "Error: Status Pending not found in the database." });
         
+        var requestedDate = request.AppointmentDate.ToUniversalTime();
+
+        var isTimeTaken = await _context.Appointments
+            .AnyAsync(a => a.DoctorId == request.DoctorId &&
+            a.AppointmentDate == requestedDate && 
+            a.Status!.Name != "Cancelled");
+
+        if (isTimeTaken) return BadRequest(new { message = "The doctor already has an appointment at the requested date and time." });
+
         // Create a new appointment
         var newAppointment = new Appointment
         {
