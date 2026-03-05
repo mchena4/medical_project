@@ -49,7 +49,7 @@ public class PatientsController : ControllerBase
     public async Task<IActionResult> UpdatePatient(int id, UpdatePatientDTO request)
     {
         var patient = await _context.Patients.FindAsync(id);
-        if (patient == null) return NotFound("Patient not found.");
+        if (patient == null) return NotFound(new{message = "Patient not found."});
 
         // Update patient information 
         patient.FirstName = request.FirstName ?? patient.FirstName;
@@ -58,7 +58,7 @@ public class PatientsController : ControllerBase
         patient.PhoneNumber = request.PhoneNumber ?? patient.PhoneNumber;
         patient.DateOfBirth = request.DateOfBirth ?? patient.DateOfBirth;
         await _context.SaveChangesAsync();
-        return Ok("Patient updated successfully.");
+        return Ok(new{message = "Patient updated successfully."});
     }
 
     [HttpPost]
@@ -68,17 +68,17 @@ public class PatientsController : ControllerBase
     {
         // Get the patient role from the database
         var patientRole = await _context.Roles.FirstOrDefaultAsync(r => r.Name == "Patient");
-        if (patientRole == null) return StatusCode(500, "Patient role not found in the database.");
+        if (patientRole == null) return StatusCode(500, new{message = "Patient role not found in the database."}    );
 
         // Check if a patient with the same DNI or email already exists
         if(await _context.Patients.AnyAsync(p => p.Dni == request.Dni))
         {
-            return BadRequest("A patient with the same DNI already exists.");
+            return BadRequest(new{message = "A patient with the same DNI already exists."});
         }
 
         if (await _context.Users.AnyAsync(u => u.Email == request.Email))
         {
-            return BadRequest("This email is already in use.");
+            return BadRequest(new{message = "This email is already in use."}    );
         }
 
         // Create a new user for the patient
@@ -107,7 +107,7 @@ public class PatientsController : ControllerBase
         _context.Patients.Add(patient);
         await _context.SaveChangesAsync();
 
-        return Ok("Patient created successfully.");
+        return Ok(new{message = "Patient created successfully."});
     }
 
     [HttpDelete("{id}")]
@@ -117,7 +117,7 @@ public class PatientsController : ControllerBase
     {
         // Get the patient from the database
         var patient = await _context.Patients.FindAsync(id);
-        if (patient == null) return NotFound("Patient not found.");
+        if (patient == null) return NotFound(new{message = "Patient not found."});
 
         // Get the associated user and delete both the patient and the user
         var user = await _context.Users.FindAsync(patient.UserId);
@@ -128,10 +128,10 @@ public class PatientsController : ControllerBase
         }
         else
         {
-            return NotFound("Associated user not found. Patient cannot be deleted.");
+            return NotFound(new{message = "Associated user not found. Patient cannot be deleted."});
         }
 
         await _context.SaveChangesAsync();
-        return Ok("Patient deleted successfully.");
+        return Ok(new{message = "Patient deleted successfully."});
     }
 }

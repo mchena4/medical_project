@@ -2,8 +2,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MedicalClinicAPI.Data;
-using MedicalClinicAPI.Models;
-using System.ComponentModel;
 
 namespace MedicalClinicAPI.Controllers;
 
@@ -31,7 +29,7 @@ public class DoctorsController : ControllerBase
             {
                 Id = d.Id,
                 Name = d.FirstName + " " + d.LastName,
-                Specialty = d.Specialty.Name,
+                Specialty = d.Specialty!.Name,
                 PhoneNumber = d.PhoneNumber,
             })
             .ToListAsync();
@@ -59,7 +57,7 @@ public class DoctorsController : ControllerBase
             // Check if any doctors were found for the specified specialty
             if(doctors.Count == 0)
             {
-                return NotFound("No doctors found for the specified specialty.");
+                return NotFound(new { message = "No doctors found for the specified specialty." });
             }  
 
             return Ok(doctors);

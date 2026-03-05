@@ -42,7 +42,7 @@ public class AppointmentsController : ControllerBase
             var patient = await _context.Patients.FirstOrDefaultAsync(p => p.UserId == userId);
             if (patient == null)
             {
-                return NotFound("Patient not found for the current user.");
+                return NotFound( new { message = "Patient not found for the current user." });
             }
 
             // Use the id from database
@@ -53,7 +53,7 @@ public class AppointmentsController : ControllerBase
             // Check if patient id is getting provided
             if (request.PatientId == null)
             {
-                return BadRequest("PatientId is required for receptionists.");
+                return BadRequest( new{message = "PatientId is required for receptionists."});
             }
 
             // Use the id provided in the request
@@ -62,11 +62,11 @@ public class AppointmentsController : ControllerBase
 
         // Check if the doctor exists
         var doctor = await _context.Doctors.FirstOrDefaultAsync(d => d.Id == request.DoctorId);
-        if (doctor == null) return NotFound("Doctor not found.");
+        if (doctor == null) return NotFound(new { message = "Doctor not found." });
 
         // Check if 'pending' status exists
         var pendingStatus = await _context.Statuses.FirstOrDefaultAsync(s => s.Name == "Pending");
-        if (pendingStatus == null) return StatusCode(500, "Error: Status Pending not found in the database.");
+        if (pendingStatus == null) return StatusCode(500, new { message = "Error: Status Pending not found in the database." });
         
         // Create a new appointment
         var newAppointment = new Appointment
@@ -80,8 +80,7 @@ public class AppointmentsController : ControllerBase
         _context.Appointments.Add(newAppointment);
         await _context.SaveChangesAsync();
 
-        return Ok("Appointment created successfully.");
-
+        return Ok(new { message = "Appointment created successfully." });
     }
 
     [HttpGet]
@@ -106,7 +105,7 @@ public class AppointmentsController : ControllerBase
         if(userRole == "Patient")
         {
             var patient = await _context.Patients.FirstOrDefaultAsync(p=>p.UserId == userId);
-            if(patient == null) return NotFound("Patient not found for the current user.");
+            if(patient == null) return NotFound(new { message = "Patient not found for the current user." });
 
             // Only return appointments for the current patient
             query = query.Where(a=> a.PatientId == patient.Id);
@@ -116,7 +115,7 @@ public class AppointmentsController : ControllerBase
         {   
             // Only return appointments for the current doctor
             var doctor = await _context.Doctors.FirstOrDefaultAsync(d => d.UserId == userId);
-            if(doctor == null) return NotFound("Doctor not found for the current user.");
+            if(doctor == null) return NotFound(new { message = "Doctor not found for the current user." });
             query = query.Where(a => a.DoctorId == doctor.Id);
         }
 
@@ -128,9 +127,9 @@ public class AppointmentsController : ControllerBase
                 // Details of the appointment
                 AppointmentId = a.Id,
                 Date = a.AppointmentDate,
-                Status = a.Status.Name,
-                Patient = a.Patient.FirstName + " " + a.Patient.LastName,
-                PatientDni = a.Patient.Dni
+                Status = a.Status!.Name,
+                Patient = a.Patient!.FirstName + " " + a.Patient.LastName,
+                PatientDni = a.Patient!.Dni
             })
             .ToListAsync();
 
@@ -146,11 +145,11 @@ public class AppointmentsController : ControllerBase
         var (userId, userRole) = User.GetUserInfo();
 
         // Check if the user ID is valid
-        if (userId == null) return Unauthorized("Invalid user ID.");
+        if (userId == null) return Unauthorized(new { message = "Invalid user ID." });
 
         // Get the appointment to be cancelled
         var appointment = await _context.Appointments.FindAsync(id);
-        if (appointment == null) return NotFound("Appointment not found.");
+        if (appointment == null) return NotFound(new { message = "Appointment not found." });
 
         // If the user is a patient, check if the appointment belongs to the patient
         if (userRole == "Patient")
@@ -159,7 +158,7 @@ public class AppointmentsController : ControllerBase
 
             if (patient == null || appointment.PatientId != patient.Id)
             {
-                return StatusCode(403, "You are not authorized to cancel this appointment.");
+                return StatusCode(403, new { message = "You are not authorized to cancel this appointment." });
             }
 
         }   
@@ -180,30 +179,30 @@ public class AppointmentsController : ControllerBase
         //Identify user and his role
         var (userId, userRole) = User.GetUserInfo();
 
-        if (userId == null) return Unauthorized("Invalid user ID.");
+        if (userId == null) return Unauthorized(new { message = "Invalid user ID." });
 
 
         // Get the appointment to be updated
         var appointment = await _context.Appointments.FindAsync(id);
-        if (appointment == null) return NotFound("Appointment not found.");
+        if (appointment == null) return NotFound(new { message = "Appointment not found." });
 
         
         if (userRole == "Doctor")
         {
 
             var doctor = await _context.Doctors.FirstOrDefaultAsync(d => d.UserId == userId);
-            if(doctor == null) return NotFound("Doctor not found for the current user.");
+            if(doctor == null) return NotFound(new { message = "Doctor not found for the current user." });
             
             // Check if the doctor is trying to update an appointment that belongs to him
             if(appointment.DoctorId != doctor.Id)
             {
-                return StatusCode(403, "You are not authorized to update this appointment.");
+                return StatusCode(403, new { message = "You are not authorized to update this appointment." });
             }
 
             // Only allow doctors to update the status of the appointment
             if (request.AppointmentDate.HasValue || request.DoctorId.HasValue || request.PatientId.HasValue)
             {
-                return BadRequest("Doctors can only update the status of the appointment.");
+                return BadRequest(new { message = "Doctors can only update the status of the appointment." });
             }
 
             // Update the status if provided
@@ -228,7 +227,7 @@ public class AppointmentsController : ControllerBase
             {
                 // Check if the doctor exists and has the Doctor role
                 var doctor = await _context.Users.FirstOrDefaultAsync(u => u.Id == request.DoctorId.Value && u.Role != null && u.Role.Name == "Doctor");
-                if (doctor == null) return NotFound("Doctor not found.");
+                if (doctor == null) return NotFound(new { message = "Doctor not found." });
                 appointment.DoctorId = request.DoctorId.Value;
             }
         }
@@ -236,6 +235,6 @@ public class AppointmentsController : ControllerBase
         // Save changes to the database
         await _context.SaveChangesAsync();
 
-        return Ok("Appointment updated successfully.");
+        return Ok(new { message = "Appointment updated successfully." });
     }
 }

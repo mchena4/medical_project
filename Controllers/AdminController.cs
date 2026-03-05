@@ -132,7 +132,7 @@ public class AdminController : ControllerBase
         // Check if the email is already in use
         if (await _context.Users.AnyAsync(u => u.Email == request.Email))
         {
-            return BadRequest("Email is already in use.");
+            return BadRequest( new{ message = "Email is already in use." });
         }
 
         // Find the role in the database

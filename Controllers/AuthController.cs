@@ -32,14 +32,14 @@ public class AuthController : ControllerBase
     {
         // Check if the email is already registered
         if (await _context.Users.AnyAsync(u => u.Email == request.Email)){
-            return BadRequest("Email is already registered.");
+            return BadRequest(new{message = "Email is already registered."});
         }
 
         // Get the Patient role from the database
         var patientRole = await _context.Roles.FirstOrDefaultAsync(r => r.Name == "Patient");
         if (patientRole == null) 
         {
-            return StatusCode(500, "Error: Role Patient not found in the database.");
+            return StatusCode(500, new{message = "Error: Role Patient not found in the database."});
         }
 
         // Create a new user
@@ -66,7 +66,7 @@ public class AuthController : ControllerBase
         _context.Patients.Add(newPatient);
         await _context.SaveChangesAsync();
 
-        return Ok("Patient registered successfully.");
+        return Ok(new{message = "Patient registered successfully."});
     }
 
     // Login endpoint to authenticate a user and return a JWT token
@@ -81,7 +81,7 @@ public class AuthController : ControllerBase
         // Check if the user exists and if the password is correct
         if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.Password))
         {
-            return Unauthorized("Invalid email or password.");
+            return Unauthorized(new{message = "Invalid email or password."});
         }
 
         // Create claims for the JWT token
@@ -121,25 +121,25 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> ChangePassword(ChangePasswordDTO request)
     {
         var userId = User.GetUserInfo().userId;
-        if (userId == null) return Unauthorized("User ID not found in token.");
+        if (userId == null) return Unauthorized(new{message = "User ID not found in token."});
 
         var user = await _context.Users.FindAsync(userId);
-        if (user == null) return NotFound("User not found.");
+        if (user == null) return NotFound(new{message = "User not found."});
 
         if(!BCrypt.Net.BCrypt.Verify(request.CurrentPassword, user.Password))
         {
-            return BadRequest("Current password is incorrect.");
+            return BadRequest(new{message = "Current password is incorrect."});
         }
 
         if (request.CurrentPassword == request.NewPassword)
         {
-            return BadRequest("New password cannot be the same as the current password.");
+            return BadRequest(new{message = "New password cannot be the same as the current password."});
         }
 
         user.Password = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
         _context.Users.Update(user);
         await _context.SaveChangesAsync();
 
-        return Ok("Password changed successfully.");
+        return Ok(new{message = "Password changed successfully."});
     }
 }
