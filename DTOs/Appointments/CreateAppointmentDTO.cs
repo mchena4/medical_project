@@ -5,7 +5,7 @@ namespace MedicalClinicAPI.DTOs.Appointments
     public class CreateAppointmentDTO
     {
         [Required]
-        public int? DoctorId { get; set; }
+        public int DoctorId { get; set; }
 
         public int? PatientId { get; set; }
 
