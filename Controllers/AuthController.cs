@@ -104,7 +104,7 @@ public class AuthController : ControllerBase
             issuer: jwtSettings.GetValue<string>("Issuer"),
             audience: jwtSettings.GetValue<string>("Audience"),
             claims: claims,
-            expires: DateTime.Now.AddHours(2),
+            expires: DateTime.UtcNow.AddHours(2),
             signingCredentials: credentials 
 
         );
