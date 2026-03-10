@@ -17,4 +17,5 @@ public class Doctor
     public int SpecialtyId { get; set; }
     public Specialty? Specialty { get; set; }
 
+    public ICollection<DoctorSchedule> Schedules { get; set; } = new List<DoctorSchedule>();
 }
