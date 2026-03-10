@@ -246,4 +246,50 @@ public class AppointmentsController : ControllerBase
 
         return Ok(new { message = "Appointment updated successfully." });
     }
+    
+    [HttpGet("AvailableSlots")]
+    // This endpoint returns the available time slots for a given doctor on a specific date
+    public async Task<IActionResult> GetAvailableSlots([FromQuery] int doctorId, [FromQuery] DateTime date)
+    {
+        // Get the day of the week from the provided date (0 = Sunday ... 6 = Saturday)
+        int dayOfWeek = (int)date.DayOfWeek;
+
+        // Get the doctor's schedule for the specified day of the week
+        var schedule = await _context.DoctorSchedules
+            .FirstOrDefaultAsync(ds => ds.DoctorId == doctorId && ds.DayOfWeek == dayOfWeek);
+
+        if (schedule == null) return Ok(new List<string>());
+
+        // Convert the date to DateOnly UTC and get the next day
+        var dateOnly = DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
+        var nextDay = dateOnly.AddDays(1);
+
+        // Get all appointments for the doctor on the specified date that are not cancelled
+        var occupiedTimes = await _context.Appointments
+            .Where(a => a.DoctorId == doctorId 
+                && a.AppointmentDate >= dateOnly 
+                && a.AppointmentDate < nextDay
+                && a.Status.Name != "Cancelled") 
+            .Select(a => a.AppointmentDate.TimeOfDay)
+            .ToListAsync();
+
+        var availableSlots = new List<string>();
+        var currentTime = schedule.StartTime;
+
+        // Loop through the schedule in increments of the slot duration to find available time slots
+        while (currentTime.Add(TimeSpan.FromMinutes(schedule.SlotDurationMinutes)) <= schedule.EndTime)
+        {
+            // If the current time slot is not in the list of occupied times, we consider it available
+            if (!occupiedTimes.Contains(currentTime))
+            {
+                // Save the available slot in the format "HH:mm"
+                availableSlots.Add(currentTime.ToString(@"hh\:mm"));
+            }
+
+            // Move to the next time slot
+            currentTime = currentTime.Add(TimeSpan.FromMinutes(schedule.SlotDurationMinutes));
+        }
+
+    return Ok(availableSlots);
+    }
 }
