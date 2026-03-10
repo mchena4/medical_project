@@ -15,6 +15,7 @@ public class AppDbContext : DbContext
     public DbSet<Status> Statuses { get; set; }
 
     public DbSet<Doctor> Doctors { get; set; }
+    public DbSet<DoctorSchedule> DoctorSchedules { get; set; }
     public DbSet<Specialty> Specialties { get; set; }
     public DbSet<Receptionist> Receptionists { get; set; }
 
