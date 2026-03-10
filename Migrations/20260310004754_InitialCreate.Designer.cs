@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MedicalClinicApi.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260225225337_ChangedDOBToDateOnly")]
-    partial class ChangedDOBToDateOnly
+    [Migration("20260310004754_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -56,6 +56,74 @@ namespace MedicalClinicApi.Migrations
                     b.ToTable("Appointments");
                 });
 
+            modelBuilder.Entity("MedicalClinicAPI.Models.Doctor", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("FirstName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("LastName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("LicenseNumber")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PhoneNumber")
+                        .HasColumnType("text");
+
+                    b.Property<int>("SpecialtyId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SpecialtyId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Doctors");
+                });
+
+            modelBuilder.Entity("MedicalClinicAPI.Models.DoctorSchedule", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("DayOfWeek")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("DoctorId")
+                        .HasColumnType("integer");
+
+                    b.Property<TimeSpan>("EndTime")
+                        .HasColumnType("interval");
+
+                    b.Property<int>("SlotDurationMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<TimeSpan>("StartTime")
+                        .HasColumnType("interval");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DoctorId");
+
+                    b.ToTable("DoctorSchedules");
+                });
+
             modelBuilder.Entity("MedicalClinicAPI.Models.Patient", b =>
                 {
                     b.Property<int>("Id")
@@ -96,6 +164,35 @@ namespace MedicalClinicApi.Migrations
                     b.ToTable("Patients");
                 });
 
+            modelBuilder.Entity("MedicalClinicAPI.Models.Receptionist", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("FirstName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("LastName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PhoneNumber")
+                        .HasColumnType("text");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Receptionists");
+                });
+
             modelBuilder.Entity("MedicalClinicAPI.Models.Role", b =>
                 {
                     b.Property<int>("Id")
@@ -105,6 +202,7 @@ namespace MedicalClinicApi.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Name")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.HasKey("Id");
@@ -134,6 +232,23 @@ namespace MedicalClinicApi.Migrations
                         });
                 });
 
+            modelBuilder.Entity("MedicalClinicAPI.Models.Specialty", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Specialties");
+                });
+
             modelBuilder.Entity("MedicalClinicAPI.Models.Status", b =>
                 {
                     b.Property<int>("Id")
@@ -143,6 +258,7 @@ namespace MedicalClinicApi.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Name")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.HasKey("Id");
@@ -179,9 +295,11 @@ namespace MedicalClinicApi.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Email")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("Password")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<int>("RoleId")
@@ -199,7 +317,7 @@ namespace MedicalClinicApi.Migrations
 
             modelBuilder.Entity("MedicalClinicAPI.Models.Appointment", b =>
                 {
-                    b.HasOne("MedicalClinicAPI.Models.User", "Doctor")
+                    b.HasOne("MedicalClinicAPI.Models.Doctor", "Doctor")
                         .WithMany()
                         .HasForeignKey("DoctorId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -224,7 +342,48 @@ namespace MedicalClinicApi.Migrations
                     b.Navigation("Status");
                 });
 
+            modelBuilder.Entity("MedicalClinicAPI.Models.Doctor", b =>
+                {
+                    b.HasOne("MedicalClinicAPI.Models.Specialty", "Specialty")
+                        .WithMany("Doctors")
+                        .HasForeignKey("SpecialtyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MedicalClinicAPI.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Specialty");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("MedicalClinicAPI.Models.DoctorSchedule", b =>
+                {
+                    b.HasOne("MedicalClinicAPI.Models.Doctor", "Doctor")
+                        .WithMany("Schedules")
+                        .HasForeignKey("DoctorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Doctor");
+                });
+
             modelBuilder.Entity("MedicalClinicAPI.Models.Patient", b =>
+                {
+                    b.HasOne("MedicalClinicAPI.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("MedicalClinicAPI.Models.Receptionist", b =>
                 {
                     b.HasOne("MedicalClinicAPI.Models.User", "User")
                         .WithMany()
@@ -244,6 +403,16 @@ namespace MedicalClinicApi.Migrations
                         .IsRequired();
 
                     b.Navigation("Role");
+                });
+
+            modelBuilder.Entity("MedicalClinicAPI.Models.Doctor", b =>
+                {
+                    b.Navigation("Schedules");
+                });
+
+            modelBuilder.Entity("MedicalClinicAPI.Models.Specialty", b =>
+                {
+                    b.Navigation("Doctors");
                 });
 #pragma warning restore 612, 618
         }
