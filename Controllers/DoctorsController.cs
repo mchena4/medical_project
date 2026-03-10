@@ -29,6 +29,7 @@ public class DoctorsController : ControllerBase
             {
                 Id = d.Id,
                 Name = d.FirstName + " " + d.LastName,
+                LicenseNumber = d.LicenseNumber,
                 Specialty = d.Specialty!.Name,
                 PhoneNumber = d.PhoneNumber,
             })
