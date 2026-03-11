@@ -292,4 +292,35 @@ public class AppointmentsController : ControllerBase
 
     return Ok(availableSlots);
     }
+
+    [HttpGet("MyAppointments")]
+    
+    public async Task<IActionResult> GetMyAppointments()
+    {
+        var (userId, userRole) = User.GetUserInfo();
+
+        if (userId == null) return Unauthorized(new { message = "Invalid user ID." });
+
+        var patient = await _context.Patients.FirstOrDefaultAsync(p=> p.UserId == userId);  
+
+        if (patient == null) return NotFound(new { message = "Patient not found for the current user." });
+
+        var appointments = await _context.Appointments
+            .Where(a => a.PatientId == patient.Id)
+            .Include(a => a.Doctor)
+                .ThenInclude(d => d!.Specialty)
+            .Include(a => a.Status)
+            .OrderBy(a=> a.AppointmentDate)
+            .Select(a => new
+            {
+                Id = a.Id,
+                Date = a.AppointmentDate,
+                Status = a.Status!.Name,
+                DoctorName = a.Doctor!.FirstName + " " + a.Doctor.LastName,
+                Specialty = a.Doctor!.Specialty!.Name
+            })
+            .ToListAsync();
+
+        return Ok(appointments);    
+    }
 }
