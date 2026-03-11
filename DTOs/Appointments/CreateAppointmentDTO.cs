@@ -10,6 +10,12 @@ namespace MedicalClinicAPI.DTOs.Appointments
         public int? PatientId { get; set; }
 
         [Required]
-        public DateTime AppointmentDate { get; set; }
+        private DateTime _appointmentDate;
+
+        public DateTime AppointmentDate
+        {
+            get => _appointmentDate;
+            set => _appointmentDate = DateTime.SpecifyKind(value, DateTimeKind.Utc);        
+        }
     }
 };
