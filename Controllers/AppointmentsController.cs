@@ -68,11 +68,11 @@ public class AppointmentsController : ControllerBase
         var pendingStatus = await _context.Statuses.FirstOrDefaultAsync(s => s.Name == "Pending");
         if (pendingStatus == null) return StatusCode(500, new { message = "Error: Status Pending not found in the database." });
         
-        var requestedDate = request.AppointmentDate.ToUniversalTime();
+        var appointmentDateUtc = DateTime.SpecifyKind(request.AppointmentDate, DateTimeKind.Utc);
 
         var isTimeTaken = await _context.Appointments
             .AnyAsync(a => a.DoctorId == request.DoctorId &&
-            a.AppointmentDate == requestedDate && 
+            a.AppointmentDate == appointmentDateUtc && 
             a.Status!.Name != "Cancelled");
 
         if (isTimeTaken) return BadRequest(new { message = "The doctor already has an appointment at the requested date and time." });
@@ -82,7 +82,7 @@ public class AppointmentsController : ControllerBase
         {
             PatientId = finalPatientId,
             DoctorId = request.DoctorId,
-            AppointmentDate = request.AppointmentDate,
+            AppointmentDate = appointmentDateUtc,
             StatusId = pendingStatus.Id
         };
 
@@ -145,7 +145,7 @@ public class AppointmentsController : ControllerBase
             return Ok(appointments);
     }
 
-    [HttpDelete("{id}")]
+    [HttpDelete("{id}/Cancel")]
     [Authorize(Roles = "Patient, Receptionist")]
     // This endpoint allows patients and receptionists to cancel appointments
     public async Task<IActionResult> CancelAppointment(int id)
@@ -157,8 +157,16 @@ public class AppointmentsController : ControllerBase
         if (userId == null) return Unauthorized(new { message = "Invalid user ID." });
 
         // Get the appointment to be cancelled
-        var appointment = await _context.Appointments.FindAsync(id);
+        var appointment = await _context.Appointments
+            .Include(a => a.Status)
+            .FirstOrDefaultAsync(a => a.Id == id);
+
         if (appointment == null) return NotFound(new { message = "Appointment not found." });
+
+        if (appointment.Status!.Name == "Cancelled" || appointment.Status!.Name == "Completed") 
+        {
+            return BadRequest(new { message = "The appointment is already cancelled or completed." });
+        }
 
         // If the user is a patient, check if the appointment belongs to the patient
         if (userRole == "Patient")
@@ -172,8 +180,13 @@ public class AppointmentsController : ControllerBase
 
         }   
 
+        // Check if 'cancelled' status exists and get the ID
+        var cancelledStatus = await _context.Statuses.FirstOrDefaultAsync(s => s.Name == "Cancelled");
+        if (cancelledStatus == null) return StatusCode(500, new { message = "Error: Status Cancelled not found in the database." });
+
+        appointment.StatusId = cancelledStatus.Id;
+
         // Cancel appointment
-        _context.Appointments.Remove(appointment);
         await _context.SaveChangesAsync();
 
         return Ok(new {message = "Appointment cancelled successfully." }); 
@@ -247,66 +260,68 @@ public class AppointmentsController : ControllerBase
         return Ok(new { message = "Appointment updated successfully." });
     }
     
-    [HttpGet("AvailableSlots")]
-    // This endpoint returns the available time slots for a given doctor on a specific date
-    public async Task<IActionResult> GetAvailableSlots([FromQuery] int doctorId, [FromQuery] DateTime date)
+[HttpGet("AvailableSlots")]
+// This endpoint allows patients and receptionists to view available appointment slots for a specific doctor on a given date
+public async Task<IActionResult> GetAvailableSlots([FromQuery] int doctorId, [FromQuery] DateTime date)
+{
+    // Convert the input date to UTC and get next day in UTC
+    var dateUtc = DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
+    var nextDay = dateUtc.AddDays(1);
+
+    // Get the day of the week (0 = Sunday ... 6 = Saturday)
+    int dayOfWeek = (int)dateUtc.DayOfWeek;
+
+    // Get the doctor's schedule for the specified day of the week
+    var schedule = await _context.DoctorSchedules
+        .FirstOrDefaultAsync(ds => ds.DoctorId == doctorId && ds.DayOfWeek == dayOfWeek);
+
+    if (schedule == null) return Ok(new List<string>());
+
+    // Get all appointments for the doctor on the specified date that are not cancelled
+    var occupiedTimes = await _context.Appointments
+        .Where(a => a.DoctorId == doctorId
+            && a.AppointmentDate >= dateUtc
+            && a.AppointmentDate < nextDay
+            && a.Status!.Name != "Cancelled")
+        .Select(a => a.AppointmentDate)
+        .ToListAsync();
+
+    // Get the time of day for the occupied appointments and return a list
+    var occupiedTimeOfDays = occupiedTimes
+        .Select(d => d.TimeOfDay)
+        .ToList();
+
+    // Calculate available slots based on the doctor's schedule and occupied times
+    var availableSlots = new List<string>();
+    var currentTime = schedule.StartTime;
+
+    while (currentTime.Add(TimeSpan.FromMinutes(schedule.SlotDurationMinutes)) <= schedule.EndTime)
     {
-        // Get the day of the week from the provided date (0 = Sunday ... 6 = Saturday)
-        int dayOfWeek = (int)date.DayOfWeek;
-
-        // Get the doctor's schedule for the specified day of the week
-        var schedule = await _context.DoctorSchedules
-            .FirstOrDefaultAsync(ds => ds.DoctorId == doctorId && ds.DayOfWeek == dayOfWeek);
-
-        if (schedule == null) return Ok(new List<string>());
-
-        // Convert the date to DateOnly UTC and get the next day
-        var dateOnly = DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
-        var nextDay = dateOnly.AddDays(1);
-
-        // Get all appointments for the doctor on the specified date that are not cancelled
-        var occupiedTimes = await _context.Appointments
-            .Where(a => a.DoctorId == doctorId 
-                && a.AppointmentDate >= nextDay 
-                && a.AppointmentDate < nextDay
-                && a.Status!.Name != "Cancelled")
-            .Select(a => a.AppointmentDate) // 👈 Solo la fecha completa
-            .ToListAsync();
-
-        // Convert occupied times to TimeOfDay in UTC
-        var occupiedTimeOfDays = occupiedTimes
-            .Select(d => d.ToUniversalTime().TimeOfDay)
-            .ToList();
-
-        // Generate available time slots based on the doctor's schedule and occupied times
-        var availableSlots = new List<string>();
-        var currentTime = schedule.StartTime;
-
-        while (currentTime.Add(TimeSpan.FromMinutes(schedule.SlotDurationMinutes)) <= schedule.EndTime)
+        if (!occupiedTimeOfDays.Contains(currentTime))
         {
-            if (!occupiedTimeOfDays.Contains(currentTime))
-            {
-                availableSlots.Add(currentTime.ToString(@"hh\:mm"));
-            }
-            
-            currentTime = currentTime.Add(TimeSpan.FromMinutes(schedule.SlotDurationMinutes));
+            availableSlots.Add(currentTime.ToString(@"hh\:mm"));
         }
-
-    return Ok(availableSlots);
+        currentTime = currentTime.Add(TimeSpan.FromMinutes(schedule.SlotDurationMinutes));
     }
 
+    return Ok(availableSlots);
+}
+
     [HttpGet("MyAppointments")]
-    
+    // This endpoint allows patients to view their own appointments with doctor and status details
     public async Task<IActionResult> GetMyAppointments()
     {
+        // Get user ID and role from the JWT token
         var (userId, userRole) = User.GetUserInfo();
 
         if (userId == null) return Unauthorized(new { message = "Invalid user ID." });
 
+        // Check if the user is a patient
         var patient = await _context.Patients.FirstOrDefaultAsync(p=> p.UserId == userId);  
 
         if (patient == null) return NotFound(new { message = "Patient not found for the current user." });
 
+        // Get the patient's appointments with doctor and status details
         var appointments = await _context.Appointments
             .Where(a => a.PatientId == patient.Id)
             .Include(a => a.Doctor)
