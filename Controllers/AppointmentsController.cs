@@ -267,26 +267,28 @@ public class AppointmentsController : ControllerBase
         // Get all appointments for the doctor on the specified date that are not cancelled
         var occupiedTimes = await _context.Appointments
             .Where(a => a.DoctorId == doctorId 
-                && a.AppointmentDate >= dateOnly 
+                && a.AppointmentDate >= nextDay 
                 && a.AppointmentDate < nextDay
-                && a.Status.Name != "Cancelled") 
-            .Select(a => a.AppointmentDate.TimeOfDay)
+                && a.Status!.Name != "Cancelled")
+            .Select(a => a.AppointmentDate) // 👈 Solo la fecha completa
             .ToListAsync();
 
+        // Convert occupied times to TimeOfDay in UTC
+        var occupiedTimeOfDays = occupiedTimes
+            .Select(d => d.ToUniversalTime().TimeOfDay)
+            .ToList();
+
+        // Generate available time slots based on the doctor's schedule and occupied times
         var availableSlots = new List<string>();
         var currentTime = schedule.StartTime;
 
-        // Loop through the schedule in increments of the slot duration to find available time slots
         while (currentTime.Add(TimeSpan.FromMinutes(schedule.SlotDurationMinutes)) <= schedule.EndTime)
         {
-            // If the current time slot is not in the list of occupied times, we consider it available
-            if (!occupiedTimes.Contains(currentTime))
+            if (!occupiedTimeOfDays.Contains(currentTime))
             {
-                // Save the available slot in the format "HH:mm"
                 availableSlots.Add(currentTime.ToString(@"hh\:mm"));
             }
-
-            // Move to the next time slot
+            
             currentTime = currentTime.Add(TimeSpan.FromMinutes(schedule.SlotDurationMinutes));
         }
 
