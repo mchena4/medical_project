@@ -340,4 +340,34 @@ public async Task<IActionResult> GetAvailableSlots([FromQuery] int doctorId, [Fr
 
         return Ok(appointments);    
     }
+
+
+    [HttpGet("DoctorSchedule")]
+    [Authorize(Roles = "Doctor, Receptionist")]
+
+    public async Task<IActionResult> GetDoctorAppointments()
+    {
+        var (userId, userRole) = User.GetUserInfo();
+
+        if (userId == null) return Unauthorized(new { message = "Invalid user ID." });
+
+        var doctor = await _context.Doctors.FirstOrDefaultAsync(d => d.UserId == userId);
+        if (doctor == null) return NotFound(new { message = "Doctor not found for the current user." });
+        
+        var appointments = await _context.Appointments
+            .Where(a => a.DoctorId == doctor.Id && a.Status!.Name != "Cancelled")
+            .Include(a => a.Patient)
+            .Include (a => a.Status)
+            .OrderBy(a => a.AppointmentDate)
+            .Select(a => new
+            {
+                Id = a.Id,
+                Date = a.AppointmentDate,
+                Status = a.Status!.Name,
+                PatientName = a.Patient!.FirstName + " " + a.Patient.LastName
+            })
+            .ToListAsync();
+
+        return Ok(appointments);
+    }
 }
