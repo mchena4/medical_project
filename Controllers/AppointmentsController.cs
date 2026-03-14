@@ -344,18 +344,33 @@ public async Task<IActionResult> GetAvailableSlots([FromQuery] int doctorId, [Fr
 
     [HttpGet("DoctorSchedule")]
     [Authorize(Roles = "Doctor, Receptionist")]
-
-    public async Task<IActionResult> GetDoctorAppointments()
+    // This endpoint allows doctors to view their own schedule of appointments and receptionists to view the schedule of a specific doctor
+    public async Task<IActionResult> GetDoctorAppointments([FromQuery] int? doctorId = null)
     {
+        // Get user ID and role
         var (userId, userRole) = User.GetUserInfo();
 
         if (userId == null) return Unauthorized(new { message = "Invalid user ID." });
 
-        var doctor = await _context.Doctors.FirstOrDefaultAsync(d => d.UserId == userId);
-        if (doctor == null) return NotFound(new { message = "Doctor not found for the current user." });
-        
+        // Determine the doctor ID based on the user role
+        int doctorSelectedId;
+
+        if (userRole == "Doctor")
+        {
+            var doctor = await _context.Doctors.FirstOrDefaultAsync(d => d.UserId == userId);
+            if (doctor == null) return NotFound(new { message = "Doctor not found for the current user." });
+            doctorSelectedId = doctor.Id;
+        }
+        else
+        {
+            // If the user is a receptionist, check if doctorId is provided in the query parameters
+            if (!doctorId.HasValue) return BadRequest(new { message = "DoctorId is required for receptionists." });
+            doctorSelectedId = doctorId.Value;
+        }
+
+        // Get the appointments for the doctor with patient and status details
         var appointments = await _context.Appointments
-            .Where(a => a.DoctorId == doctor.Id && a.Status!.Name != "Cancelled")
+            .Where(a => a.DoctorId == doctorSelectedId && a.Status!.Name != "Cancelled")
             .Include(a => a.Patient)
             .Include (a => a.Status)
             .OrderBy(a => a.AppointmentDate)
@@ -366,8 +381,9 @@ public async Task<IActionResult> GetAvailableSlots([FromQuery] int doctorId, [Fr
                 Status = a.Status!.Name,
                 PatientName = a.Patient!.FirstName + " " + a.Patient.LastName
             })
-            .ToListAsync();
-
+            .ToListAsync(); 
+        
         return Ok(appointments);
     }
+
 }
