@@ -142,4 +142,13 @@ public class AuthController : ControllerBase
 
         return Ok(new{message = "Password changed successfully."});
     }
+
+    [HttpGet("me")]
+    [Authorize]
+    // This endpoint returns the current user's ID and role based on the JWT token claims
+    public async Task<IActionResult> GetCurrentUser()
+    {
+        var (userId, userRole) = User.GetUserInfo();
+        return Ok(new { UserId = userId, Role = userRole });
+    }
 }
