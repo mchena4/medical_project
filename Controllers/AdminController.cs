@@ -152,5 +152,15 @@ public class AdminController : ControllerBase
 
         return Ok(new { Message = "User created successfully" });
     }
+
+    [HttpGet("Specialties")]
+    public async Task<IActionResult> GetSpecialties()
+    {
+        var specialties = await _context.Specialties
+            .Select(s => new { s.Id, s.Name })
+            .ToListAsync();
+
+        return Ok(specialties);
+    }
 }
 
