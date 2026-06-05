@@ -34,11 +34,18 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 // CORS Configuration
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowNextJs", policy =>
+    options.AddPolicy("PermitirFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:3000")
-              .AllowAnyHeader()
-              .AllowAnyMethod();
+        // Lee los orígenes permitidos separados por coma desde la configuración
+        var origins = builder.Configuration.GetValue<string>("Cors:Origins")?.Split(',');
+        
+        if (origins != null && origins.Length > 0)
+        {
+            policy.WithOrigins(origins)
+                  .AllowAnyHeader()
+                  .AllowAnyMethod()
+                  .AllowCredentials();
+        }
     });
 });
 
