@@ -34,7 +34,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 // CORS Configuration
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("PermitirFrontend", policy =>
+    options.AddPolicy("AllowNextJs", policy =>
     {
         // Lee los orígenes permitidos separados por coma desde la configuración
         var origins = builder.Configuration.GetValue<string>("Cors:Origins")?.Split(',');
