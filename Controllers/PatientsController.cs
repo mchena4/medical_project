@@ -9,7 +9,7 @@ namespace MedicalClinicAPI.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
-[Authorize]
+// [Authorize]
 public class PatientsController : ControllerBase
 {
     private readonly AppDbContext _context;
@@ -19,7 +19,7 @@ public class PatientsController : ControllerBase
         _context = context;
     }
 
-    [HttpGet]
+    [HttpGet("GetPatients")]
     [Authorize(Roles = "Receptionist,Doctor")]
 
     // This endpoint allows receptionists and doctors to view all patients.
@@ -43,8 +43,8 @@ public class PatientsController : ControllerBase
     }
 
 
-    [HttpPut("{id}")]
-    [Authorize(Roles = "Receptionist")]
+    [HttpPut("UpdatePatient/{id}")]
+    [Authorize(Roles = "Receptionist,Patient")]
     // This endpoint allows receptionists to update patient information.
     public async Task<IActionResult> UpdatePatient(int id, UpdatePatientDTO request)
     {
@@ -61,7 +61,7 @@ public class PatientsController : ControllerBase
         return Ok(new{message = "Patient updated successfully."});
     }
 
-    [HttpPost]
+    [HttpPost("CreatePatient")]
     [Authorize(Roles = "Receptionist")]
     // This endpoint allows receptionists to create new patients.
     public async Task<IActionResult> CreatePatient(CreatePatientDTO request)
@@ -110,7 +110,7 @@ public class PatientsController : ControllerBase
         return Ok(new{message = "Patient created successfully."});
     }
 
-    [HttpDelete("{id}")]
+    [HttpDelete("DeletePatient/{id}")]
     [Authorize(Roles = "Receptionist")]
     // This endpoint allows receptionists to delete patients.
     public async Task<IActionResult> DeletePatient(int id)
@@ -134,4 +134,19 @@ public class PatientsController : ControllerBase
         await _context.SaveChangesAsync();
         return Ok(new{message = "Patient deleted successfully."});
     }
+
+    [HttpGet("GetPatient/{id}")]
+    [Authorize(Roles = "Patient,Receptionist")]
+    public async Task<IActionResult> GetPatientById(int id)
+    {
+        // Get the patient from the database using the user ID
+        var patient = await _context.Patients
+        .Include(p => p.User)
+        .FirstOrDefaultAsync(p => p.UserId == id);
+
+        if (patient == null) return NotFound(new{message = "Patient not found."});
+
+        return Ok(patient);
+    }
+
 }
