@@ -96,7 +96,7 @@ public class AppointmentsController : ControllerBase
     [Authorize(Roles = "Patient, Receptionist, Doctor")]
 
     // This endpoint allows patients, receptionists, and doctors to view appointments
-    public async Task<IActionResult> GetAppointments()
+    public async Task<IActionResult> GetAppointments([FromQuery] DateTime? date)
     {
         //Identify the user and his role
         var (userId, userRole) = User.GetUserInfo();
@@ -108,7 +108,17 @@ public class AppointmentsController : ControllerBase
         var query = _context.Appointments
             .Include(a => a.Patient)
             .Include(a => a.Status)
+            .Include( a => a.Doctor)
             .AsQueryable();
+
+        // Filter appointments for the specified day
+        if (date.HasValue)
+        {
+            var dateUtc = DateTime.SpecifyKind(date.Value.Date, DateTimeKind.Utc);
+            var nextDay = dateUtc.AddDays(1);
+
+            query = query.Where(a => a.AppointmentDate >= dateUtc && a.AppointmentDate < nextDay);
+        }
 
         // Filter appointments based on user role
         if(userRole == "Patient")
@@ -138,7 +148,8 @@ public class AppointmentsController : ControllerBase
                 Date = a.AppointmentDate,
                 Status = a.Status!.Name,
                 Patient = a.Patient!.FirstName + " " + a.Patient.LastName,
-                PatientDni = a.Patient!.Dni
+                PatientDni = a.Patient!.Dni,
+                Doctor = a.Doctor!.FirstName + " " + a.Doctor.LastName
             })
             .ToListAsync();
 
@@ -222,10 +233,10 @@ public class AppointmentsController : ControllerBase
             }
 
             // Only allow doctors to update the status of the appointment
-            if (request.AppointmentDate.HasValue || request.DoctorId.HasValue || request.PatientId.HasValue)
-            {
-                return BadRequest(new { message = "Doctors can only update the status of the appointment." });
-            }
+            // if (request.AppointmentDate.HasValue || request.DoctorId.HasValue || request.PatientId.HasValue)
+            // {
+            //     return BadRequest(new { message = "Doctors can only update the status of the appointment." });
+            // }
 
             // Update the status if provided
             if(request.StatusId.HasValue) appointment.StatusId = request.StatusId.Value;
@@ -385,5 +396,39 @@ public async Task<IActionResult> GetAvailableSlots([FromQuery] int doctorId, [Fr
         
         return Ok(appointments);
     }
+
+    [HttpGet("GetAppointmentsByDoctor/{id}")]
+    [Authorize(Roles = "Doctor,Receptionist")]
+
+    // This endpoint allows doctors and receptionists to view all appointments for a specific doctor, including patient details.
+    public async Task<IActionResult> GetAppointmentsByDoctor(int id)
+    {
+
+        // Get doctor by user id 
+        var doctor = await _context.Doctors
+        .FirstOrDefaultAsync(d => d.UserId == id);
+
+        if (doctor == null) return NotFound(new {message = "No Doctor Found for this ID"});
+
+        // Get all appointments for a specific doctor, including patient details
+        var appointments = await _context.Appointments   
+        .Include(a => a.Patient)
+        .Where(a => a.DoctorId == doctor.Id)
+        .Select(a => new
+        {
+            a.Id,
+            a.AppointmentDate,
+            PatientId = a.PatientId,
+            PatientName = $"{a.Patient.FirstName} {a.Patient.LastName}",
+            PatientDni = a.Patient.Dni,
+            DoctorId = a.DoctorId,
+            StatusId = a.StatusId
+        })
+        .ToListAsync();
+
+        if (appointments == null) return NotFound(new{message = "No appointments found for this doctor."});
+
+        return Ok(appointments);
+     }
 
 }
