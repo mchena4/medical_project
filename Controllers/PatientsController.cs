@@ -147,6 +147,5 @@ public class PatientsController : ControllerBase
         if (patient == null) return NotFound(new{message = "Patient not found."});
 
         return Ok(patient);
-    }
-
+    }   
 }
