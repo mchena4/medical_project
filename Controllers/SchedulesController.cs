@@ -4,12 +4,13 @@ using Microsoft.EntityFrameworkCore;
 using MedicalClinicAPI.Data;
 using MedicalClinicAPI.Models;
 using MedicalClinicAPI.DTOs.Admin;
-
+using Microsoft.AspNetCore.RateLimiting;
 namespace MedicalClinicAPI.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
 [Authorize(Roles = "Admin")]
+[EnableRateLimiting("BasicPolitics")]
 public class SchedulesController : ControllerBase
 {
     private readonly AppDbContext _context;

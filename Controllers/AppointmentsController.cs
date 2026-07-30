@@ -5,12 +5,14 @@ using MedicalClinicAPI.Data;
 using MedicalClinicAPI.Models;
 using MedicalClinicAPI.DTOs.Appointments;
 using MedicalClinicAPI.Extensions;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace MedicalClinicAPI.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
 [Authorize]
+[EnableRateLimiting("BasicPolitics")]
 public class AppointmentsController : ControllerBase
 {
     private readonly AppDbContext _context;

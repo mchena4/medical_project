@@ -5,6 +5,7 @@ using MedicalClinicAPI.Data;
 using MedicalClinicAPI.Models;
 using MedicalClinicAPI.DTOs.Admin;
 using MedicalClinicAPI.DTOs.Users;
+using Microsoft.AspNetCore.RateLimiting;
 
 
 namespace MedicalClinicAPI.Controllers;
@@ -12,6 +13,7 @@ namespace MedicalClinicAPI.Controllers;
 [Route("api/[controller]")]
 [ApiController]
 [Authorize(Roles = "Admin")]
+[EnableRateLimiting("BasicPolitics")]
 
 public class AdminController : ControllerBase
 {

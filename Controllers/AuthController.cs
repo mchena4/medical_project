@@ -9,11 +9,13 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using MedicalClinicAPI.Extensions;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace MedicalClinicAPI.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
+[EnableRateLimiting("BasicPolitics")]
 public class AuthController : ControllerBase
 {
     private readonly AppDbContext _context;

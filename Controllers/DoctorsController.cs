@@ -2,13 +2,14 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MedicalClinicAPI.Data;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace MedicalClinicAPI.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
 [Authorize]
-
+[EnableRateLimiting("BasicPolitics")]
 public class DoctorsController : ControllerBase
 {
     private readonly AppDbContext _context;
