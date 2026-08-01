@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using MedicalClinicAPI.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,7 +17,7 @@ builder.Services.AddOpenApi();
 // Postgres connection
 builder.Services.AddDbContextPool<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
-    
+
 // JWT Configuration
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -83,6 +84,9 @@ builder.Services.AddRateLimiter( options =>
 
 });
 
+builder.Services.AddCustomOutputCache();
+
+
 // CORS Configuration
 builder.Services.AddCors(options =>
 {
@@ -119,6 +123,8 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.UseRateLimiter();
+
+app.UseOutputCache();
 
 app.MapControllers();
 
