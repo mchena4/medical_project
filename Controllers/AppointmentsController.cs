@@ -6,6 +6,8 @@ using MedicalClinicAPI.Models;
 using MedicalClinicAPI.DTOs.Appointments;
 using MedicalClinicAPI.Extensions;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.OutputCaching;
+using MedicalClinicAPI.Filters;
 
 namespace MedicalClinicAPI.Controllers;
 
@@ -17,6 +19,8 @@ public class AppointmentsController : ControllerBase
 {
     private readonly AppDbContext _context;
 
+    private const string CACHE_TAG = "appointments_tag";
+
     public AppointmentsController(AppDbContext context)
     {
         _context = context;
@@ -26,6 +30,7 @@ public class AppointmentsController : ControllerBase
     [Authorize(Roles = "Patient, Receptionist")]
 
     // This endpoint allows both patients and receptionists to create appointments.
+    [InvalidateCache(CACHE_TAG)]
     public async Task<IActionResult> CreateAppointment(CreateAppointmentDTO request)
     {
         //Identify the user and his role
@@ -98,6 +103,7 @@ public class AppointmentsController : ControllerBase
     [Authorize(Roles = "Patient, Receptionist, Doctor")]
 
     // This endpoint allows patients, receptionists, and doctors to view appointments
+    [OutputCache(PolicyName = "AppointmentsPolicy", VaryByQueryKeys = new[] { "date" })]
     public async Task<IActionResult> GetAppointments([FromQuery] DateTime? date)
     {
         //Identify the user and his role
@@ -161,6 +167,7 @@ public class AppointmentsController : ControllerBase
     [HttpDelete("{id}/Cancel")]
     [Authorize(Roles = "Patient, Receptionist")]
     // This endpoint allows patients and receptionists to cancel appointments
+    [InvalidateCache(CACHE_TAG)]
     public async Task<IActionResult> CancelAppointment(int id)
     {
         //Identify the user and his role
@@ -209,6 +216,7 @@ public class AppointmentsController : ControllerBase
     [Authorize(Roles = "Receptionist, Doctor")]
 
     // This endpoint allows receptionists and doctors to update appointments
+    [InvalidateCache(CACHE_TAG)]
     public async Task<IActionResult> UpdateAppointment(int id, UpdateAppointmentDTO request)
     {
         //Identify user and his role
@@ -273,53 +281,55 @@ public class AppointmentsController : ControllerBase
         return Ok(new { message = "Appointment updated successfully." });
     }
     
-[HttpGet("AvailableSlots")]
-// This endpoint allows patients and receptionists to view available appointment slots for a specific doctor on a given date
-public async Task<IActionResult> GetAvailableSlots([FromQuery] int doctorId, [FromQuery] DateTime date)
-{
-    // Convert the input date to UTC and get next day in UTC
-    var dateUtc = DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
-    var nextDay = dateUtc.AddDays(1);
-
-    // Get the day of the week (0 = Sunday ... 6 = Saturday)
-    int dayOfWeek = (int)dateUtc.DayOfWeek;
-
-    // Get the doctor's schedule for the specified day of the week
-    var schedule = await _context.DoctorSchedules
-        .FirstOrDefaultAsync(ds => ds.DoctorId == doctorId && ds.DayOfWeek == dayOfWeek);
-
-    if (schedule == null) return Ok(new List<string>());
-
-    // Get all appointments for the doctor on the specified date that are not cancelled
-    var occupiedTimes = await _context.Appointments
-        .Where(a => a.DoctorId == doctorId
-            && a.AppointmentDate >= dateUtc
-            && a.AppointmentDate < nextDay
-            && a.Status!.Name != "Cancelled")
-        .Select(a => a.AppointmentDate)
-        .ToListAsync();
-
-    // Get the time of day for the occupied appointments and return a list
-    var occupiedTimeOfDays = occupiedTimes
-        .Select(d => d.TimeOfDay)
-        .ToList();
-
-    // Calculate available slots based on the doctor's schedule and occupied times
-    var availableSlots = new List<string>();
-    var currentTime = schedule.StartTime;
-
-    while (currentTime.Add(TimeSpan.FromMinutes(schedule.SlotDurationMinutes)) <= schedule.EndTime)
+    [HttpGet("AvailableSlots")]
+    // This endpoint allows patients and receptionists to view available appointment slots for a specific doctor on a given date
+    [OutputCache(PolicyName = "AppointmentsPolicy", VaryByQueryKeys = new[] { "doctorId", "date" })]
+    public async Task<IActionResult> GetAvailableSlots([FromQuery] int doctorId, [FromQuery] DateTime date)
     {
-        if (!occupiedTimeOfDays.Contains(currentTime))
+        // Convert the input date to UTC and get next day in UTC
+        var dateUtc = DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
+        var nextDay = dateUtc.AddDays(1);
+
+        // Get the day of the week (0 = Sunday ... 6 = Saturday)
+        int dayOfWeek = (int)dateUtc.DayOfWeek;
+
+        // Get the doctor's schedule for the specified day of the week
+        var schedule = await _context.DoctorSchedules
+            .FirstOrDefaultAsync(ds => ds.DoctorId == doctorId && ds.DayOfWeek == dayOfWeek);
+
+        if (schedule == null) return Ok(new List<string>());
+
+        // Get all appointments for the doctor on the specified date that are not cancelled
+        var occupiedTimes = await _context.Appointments
+            .Where(a => a.DoctorId == doctorId
+                && a.AppointmentDate >= dateUtc
+                && a.AppointmentDate < nextDay
+                && a.Status!.Name != "Cancelled")
+            .Select(a => a.AppointmentDate)
+            .ToListAsync();
+
+        // Get the time of day for the occupied appointments and return a list
+        var occupiedTimeOfDays = occupiedTimes
+            .Select(d => d.TimeOfDay)
+            .ToList();
+
+        // Calculate available slots based on the doctor's schedule and occupied times
+        var availableSlots = new List<string>();
+        var currentTime = schedule.StartTime;
+
+        while (currentTime.Add(TimeSpan.FromMinutes(schedule.SlotDurationMinutes)) <= schedule.EndTime)
         {
-            availableSlots.Add(currentTime.ToString(@"hh\:mm"));
+            if (!occupiedTimeOfDays.Contains(currentTime))
+            {
+                availableSlots.Add(currentTime.ToString(@"hh\:mm"));
+            }
+            currentTime = currentTime.Add(TimeSpan.FromMinutes(schedule.SlotDurationMinutes));
         }
-        currentTime = currentTime.Add(TimeSpan.FromMinutes(schedule.SlotDurationMinutes));
+
+        return Ok(availableSlots);
     }
 
-    return Ok(availableSlots);
-}
-
+    [OutputCache(PolicyName = "AppointmentsPolicy")]
     [HttpGet("MyAppointments")]
     // This endpoint allows patients to view their own appointments with doctor and status details
     public async Task<IActionResult> GetMyAppointments()
@@ -358,6 +368,7 @@ public async Task<IActionResult> GetAvailableSlots([FromQuery] int doctorId, [Fr
     [HttpGet("DoctorSchedule")]
     [Authorize(Roles = "Doctor, Receptionist")]
     // This endpoint allows doctors to view their own schedule of appointments and receptionists to view the schedule of a specific doctor
+    [OutputCache(PolicyName = "AppointmentsPolicy", VaryByQueryKeys = new[] { "doctorId" })]
     public async Task<IActionResult> GetDoctorAppointments([FromQuery] int? doctorId = null)
     {
         // Get user ID and role
@@ -403,6 +414,7 @@ public async Task<IActionResult> GetAvailableSlots([FromQuery] int doctorId, [Fr
     [Authorize(Roles = "Doctor,Receptionist")]
 
     // This endpoint allows doctors and receptionists to view all appointments for a specific doctor, including patient details.
+    [OutputCache(PolicyName = "AppointmentsPolicy", VaryByRouteValueNames = new[] { "id" })]
     public async Task<IActionResult> GetAppointmentsByDoctor(int id)
     {
 
