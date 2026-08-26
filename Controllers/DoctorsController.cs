@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MedicalClinicAPI.Data;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.OutputCaching;
+using MedicalClinicAPI.Filters;
 
 namespace MedicalClinicAPI.Controllers;
 
@@ -21,6 +23,7 @@ public class DoctorsController : ControllerBase
 
 
     [HttpGet]
+    [OutputCache(PolicyName = "DoctorsPolicy")]
     public async Task<IActionResult> GetAllDoctors()
     {
         // Fetch all doctors 
@@ -42,6 +45,7 @@ public class DoctorsController : ControllerBase
     
     [HttpGet("Specialty/{SpecialtyId}")]
     // This endpoint retrieves doctors based on their specialty
+    [OutputCache(PolicyName = "DoctorsPolicy", VaryByRouteValueNames = new[] { "SpecialtyId"})]
     public async Task<IActionResult> GetDoctorsBySpecialty(int SpecialtyId)
     {
         // Fetch doctors by specialty
