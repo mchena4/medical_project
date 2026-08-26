@@ -5,6 +5,8 @@ using MedicalClinicAPI.Data;
 using MedicalClinicAPI.DTOs.Patients;
 using MedicalClinicAPI.Models;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.OutputCaching;
+using MedicalClinicAPI.Filters;
 namespace MedicalClinicAPI.Controllers;
 
 [Route("api/[controller]")]
@@ -14,6 +16,7 @@ namespace MedicalClinicAPI.Controllers;
 public class PatientsController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private const string CACHE_TAG = "patients_tag";
 
     public PatientsController(AppDbContext context)
     {
@@ -24,6 +27,7 @@ public class PatientsController : ControllerBase
     [Authorize(Roles = "Receptionist,Doctor")]
 
     // This endpoint allows receptionists and doctors to view all patients.
+    [OutputCache(PolicyName = "PatientsPolicy")]
     public async Task<IActionResult> GetPatients()
     {
         var patients = await _context.Patients
@@ -47,6 +51,7 @@ public class PatientsController : ControllerBase
     [HttpPut("UpdatePatient/{id}")]
     [Authorize(Roles = "Receptionist,Patient")]
     // This endpoint allows receptionists to update patient information.
+    [InvalidateCache(CACHE_TAG)]
     public async Task<IActionResult> UpdatePatient(int id, UpdatePatientDTO request)
     {
         var patient = await _context.Patients.FindAsync(id);
@@ -65,6 +70,8 @@ public class PatientsController : ControllerBase
     [HttpPost("CreatePatient")]
     [Authorize(Roles = "Receptionist")]
     // This endpoint allows receptionists to create new patients.
+    [InvalidateCache(CACHE_TAG)]
+
     public async Task<IActionResult> CreatePatient(CreatePatientDTO request)
     {
         // Get the patient role from the database
@@ -114,6 +121,8 @@ public class PatientsController : ControllerBase
     [HttpDelete("DeletePatient/{id}")]
     [Authorize(Roles = "Receptionist")]
     // This endpoint allows receptionists to delete patients.
+    [InvalidateCache(CACHE_TAG)]
+
     public async Task<IActionResult> DeletePatient(int id)
     {
         // Get the patient from the database
@@ -138,6 +147,7 @@ public class PatientsController : ControllerBase
 
     [HttpGet("GetPatient/{id}")]
     [Authorize(Roles = "Patient,Receptionist")]
+    [OutputCache(PolicyName = "PatientsPolicy", VaryByRouteValueNames = new[] { "id" })]
     public async Task<IActionResult> GetPatientById(int id)
     {
         // Get the patient from the database using the user ID
