@@ -5,6 +5,7 @@ using MedicalClinicAPI.Data;
 using MedicalClinicAPI.Models;
 using MedicalClinicAPI.DTOs.Admin;
 using Microsoft.AspNetCore.RateLimiting;
+using MedicalClinicAPI.Filters;
 namespace MedicalClinicAPI.Controllers;
 
 [Route("api/[controller]")]
@@ -15,12 +16,15 @@ public class SchedulesController : ControllerBase
 {
     private readonly AppDbContext _context;
 
+    private const string CACHE_TAG = "schedules_tag";
+
     public SchedulesController(AppDbContext context)
     {
         _context = context;
     }
 
     [HttpPost]
+    [InvalidateCache(CACHE_TAG)]
     public async Task<IActionResult> CreateSchedule(CreateScheduleDTO request)
     {
         var doctorExists = await _context.Doctors.AnyAsync(d => d.Id == request.DoctorId);
