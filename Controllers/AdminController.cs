@@ -6,6 +6,8 @@ using MedicalClinicAPI.Models;
 using MedicalClinicAPI.DTOs.Admin;
 using MedicalClinicAPI.DTOs.Users;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.OutputCaching;
+using MedicalClinicAPI.Filters;
 
 
 namespace MedicalClinicAPI.Controllers;
@@ -19,6 +21,9 @@ public class AdminController : ControllerBase
 {
     private readonly AppDbContext _context;
 
+    private const string CACHE_TAG_DOCTORS = "doctors_tag";
+    private const string CACHE_TAG_SPECIALTIES = "specialties_tag";
+
     public AdminController(AppDbContext context)
     {
         _context = context;
@@ -26,6 +31,7 @@ public class AdminController : ControllerBase
 
     // This endpoint allows the admin to register new staff members (doctors and receptionists)
     [HttpPost("RegisterDoctor")]
+    [InvalidateCache(CACHE_TAG_DOCTORS)]
     public async Task<IActionResult> RegisterDoctor(CreateDoctorDTO request)
     {
         // Check if the email is already in use
@@ -108,6 +114,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("CreateSpecialty")]
+    [InvalidateCache(CACHE_TAG_SPECIALTIES)]
     public async Task<IActionResult> CreateSpecialty(CreateSpecialtyDTO request)
     {
         // Check if the specialty already exists
@@ -156,6 +163,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpGet("Specialties")]
+    [OutputCache(PolicyName = "SpecialtiesPolicy")]
     public async Task<IActionResult> GetSpecialties()
     {
         var specialties = await _context.Specialties
